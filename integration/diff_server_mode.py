@@ -3,19 +3,27 @@ import logging
 from typing import Tuple
 from deepdiff import DeepDiff
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 import pprint
 from concurrent.futures import ThreadPoolExecutor
 import os
 
 
 def diff_cveid(args: Tuple[str, str, str]):
+    session = requests.Session()
+    retries = Retry(total=5,
+                    backoff_factor=1,
+                    status_forcelist=[503, 504])
+    session.mount("http://", HTTPAdapter(max_retries=retries))
+
     # Endpoint
     # /cves/:family/:release/:id
     try:
         response_old = requests.get(
-            f'http://127.0.0.1:1325/cves/{args[0]}/{args[1]}/{args[2]}', timeout=2).json()
+            f'http://127.0.0.1:1325/cves/{args[0]}/{args[1]}/{args[2]}', timeout=(10.0, 10.0)).json()
         response_new = requests.get(
-            f'http://127.0.0.1:1326/cves/{args[0]}/{args[1]}/{args[2]}', timeout=2).json()
+            f'http://127.0.0.1:1326/cves/{args[0]}/{args[1]}/{args[2]}', timeout=(10.0, 10.0)).json()
     except requests.ConnectionError as e:
         logger.error(f'Failed to Connection..., err: {e}')
         raise
@@ -34,6 +42,7 @@ def diff_package(args: Tuple[str, str, str]):
     # /packs/:family/:release/:pack
     raise NotImplementedError
 
+
 def diff_response(args: Tuple[str, str, str, str]):
     try:
         if args[0] == 'cveid':
@@ -47,9 +56,10 @@ def diff_response(args: Tuple[str, str, str, str]):
 parser = argparse.ArgumentParser()
 parser.add_argument('mode', choices=['cveid', 'package'],
                     help='Specify the mode to test.')
-parser.add_argument('ostype', choices=['alpine', 'amazon','debian', 'oracle','redhat', 'suse', 'ubuntu'],
+parser.add_argument('ostype', choices=['alpine', 'amazon', 'debian', 'oracle', 'redhat', 'suse', 'ubuntu'],
                     help='Specify the OS to be started in server mode when testing.')
-parser.add_argument('release', nargs='+', help='Specify the Release Version to be started in server mode when testing.')
+parser.add_argument('release', nargs='+',
+                    help='Specify the Release Version to be started in server mode when testing.')
 parser.add_argument(
     '--debug', action=argparse.BooleanOptionalAction, help='print debug message')
 args = parser.parse_args()
@@ -64,11 +74,13 @@ else:
     logger.setLevel(logging.INFO)
     stream_handler.setLevel(logging.INFO)
 
-formatter = logging.Formatter('%(levelname)s[%(asctime)s] %(message)s', "%m-%d|%H:%M:%S")
+formatter = logging.Formatter(
+    '%(levelname)s[%(asctime)s] %(message)s', "%m-%d|%H:%M:%S")
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-logger.info(f'start server mode test(mode: {args.mode}, os: {args.ostype}, release: {args.release})')
+logger.info(
+    f'start server mode test(mode: {args.mode}, os: {args.ostype}, release: {args.release})')
 
 if args.ostype == 'debian':
     if len(list(set(args.release) - set(['7', '8', '9', '10']))) > 0:
@@ -89,7 +101,7 @@ elif args.ostype in ["alpine", "amazon", "suse", "oracle"]:
     raise NotImplementedError
 else:
     logger.error(
-            f'Failed to diff_response..., err: This OS type({args[1]}) does not support test mode(cveid)')
+        f'Failed to diff_response..., err: This OS type({args[1]}) does not support test mode(cveid)')
     raise NotImplementedError
 
 for relVer in args.release:

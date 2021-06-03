@@ -2,12 +2,14 @@ package rdb
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/inconshreveable/log15"
 	"github.com/jinzhu/gorm"
 	"github.com/kotakanbe/goval-dictionary/config"
 	"github.com/kotakanbe/goval-dictionary/models"
+	"golang.org/x/xerrors"
 )
 
 // RedHat is a struct for DBAccess
@@ -24,6 +26,9 @@ func NewRedHat() *RedHat {
 func (o *RedHat) Name() string {
 	return o.Family
 }
+
+// RedhatOvalNamePattern is a regular expression of OVAL Name in OVALv2 format
+var RedhatOvalNamePattern = regexp.MustCompile(`^([5-8])$|^([6-8])\.(\d+)(-eus|-aus|-tus|-e4s)?$`)
 
 // InsertOval inserts RedHat OVAL
 func (o *RedHat) InsertOval(root *models.Root, meta models.FetchMeta, driver *gorm.DB) error {
@@ -115,9 +120,10 @@ func (o *RedHat) GetByPackName(driver *gorm.DB, osVer, packName, _ string) ([]mo
 			return nil, err
 		}
 
-		if root.Family == config.RedHat && major(root.OSVersion) == osVer {
+		if root.Family == config.RedHat && root.OSVersion == osVer {
 			defs = append(defs, def)
 		}
+
 	}
 
 	for i, def := range defs {
@@ -155,7 +161,7 @@ func (o *RedHat) GetByPackName(driver *gorm.DB, osVer, packName, _ string) ([]mo
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return nil, err
 		}
-		defs[i].AffectedPacks = filterByMajor(packs, osVer)
+		defs[i].AffectedPacks = filterByMajor(packs, major(osVer))
 
 		refs := []models.Reference{}
 		err = driver.Model(&def).Related(&refs, "References").Error
@@ -181,7 +187,7 @@ func filterByMajor(packs []models.Package, majorVer string) (filtered []models.P
 // GetByCveID select definition by CveID
 func (o *RedHat) GetByCveID(driver *gorm.DB, osVer, cveID string) (defs []models.Definition, err error) {
 	err = driver.Joins("JOIN roots ON roots.id = definitions.root_id AND roots.family= ? AND roots.os_version = ?",
-		config.RedHat, major(osVer)).
+		config.RedHat, osVer).
 		Joins("JOIN advisories ON advisories.definition_id = definitions.id").
 		Joins("JOIN cves ON cves.advisory_id = advisories.id").
 		Where("cves.cve_id = ?", cveID).
