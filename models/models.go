@@ -24,7 +24,7 @@ type Root struct {
 
 // Definition : >definitions>definition
 type Definition struct {
-	ID     uint `gorm:"primary_key"`
+	ID     uint `gorm:"primary_key" json:"-"`
 	RootID uint `json:"-" xml:"-"`
 
 	DefinitionID  string
@@ -38,7 +38,7 @@ type Definition struct {
 
 // Package affected
 type Package struct {
-	ID           uint `gorm:"primary_key"`
+	ID           uint `gorm:"primary_key" json:"-"`
 	DefinitionID uint `json:"-" xml:"-"`
 
 	Name            string
@@ -50,7 +50,7 @@ type Package struct {
 
 // Reference : >definitions>definition>metadata>reference
 type Reference struct {
-	ID           uint `gorm:"primary_key"`
+	ID           uint `gorm:"primary_key" json:"-"`
 	DefinitionID uint `json:"-" xml:"-"`
 
 	Source string
@@ -60,7 +60,7 @@ type Reference struct {
 
 // Advisory : >definitions>definition>metadata>advisory
 type Advisory struct {
-	ID           uint `gorm:"primary_key"`
+	ID           uint `gorm:"primary_key" json:"-"`
 	DefinitionID uint `json:"-" xml:"-"`
 
 	Severity        string
@@ -74,7 +74,7 @@ type Advisory struct {
 // Cve : >definitions>definition>metadata>advisory>cve
 // RedHat OVAL
 type Cve struct {
-	ID         uint `gorm:"primary_key"`
+	ID         uint `gorm:"primary_key" json:"-"`
 	AdvisoryID uint `json:"-" xml:"-"`
 
 	CveID  string
@@ -89,7 +89,7 @@ type Cve struct {
 // Bugzilla : >definitions>definition>metadata>advisory>bugzilla
 // RedHat OVAL
 type Bugzilla struct {
-	ID         uint `gorm:"primary_key"`
+	ID         uint `gorm:"primary_key" json:"-"`
 	AdvisoryID uint `json:"-" xml:"-"`
 
 	BugzillaID string
@@ -99,7 +99,7 @@ type Bugzilla struct {
 
 // Cpe : >definitions>definition>metadata>advisory>affected_cpe_list
 type Cpe struct {
-	ID         uint `gorm:"primary_key"`
+	ID         uint `gorm:"primary_key" json:"-"`
 	AdvisoryID uint `json:"-" xml:"-"`
 
 	Cpe string
@@ -107,7 +107,7 @@ type Cpe struct {
 
 // Debian : >definitions>definition>metadata>debian
 type Debian struct {
-	ID           uint `gorm:"primary_key"`
+	ID           uint `gorm:"primary_key" json:"-"`
 	DefinitionID uint `json:"-" xml:"-"`
 
 	CveID    string
