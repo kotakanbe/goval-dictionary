@@ -5,11 +5,20 @@ import (
 )
 
 func newRedHatFetchRequests(target []string) (reqs []fetchRequest) {
-	const t = "https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL%s.xml.bz2"
+	const tV1 = "https://www.redhat.com/security/data/oval/com.redhat.rhsa-RHEL%s.xml.bz2"
+	const tV2 = "https://www.redhat.com/security/data/oval/v2/RHEL%s/rhel-%s.oval.xml.bz2"
+
 	for _, v := range target {
+		url := ""
+		if v == "5" {
+			url = fmt.Sprintf(tV1, v)
+		} else {
+			url = fmt.Sprintf(tV2, v, v)
+		}
+
 		reqs = append(reqs, fetchRequest{
 			target:       v,
-			url:          fmt.Sprintf(t, v),
+			url:          url,
 			bzip2:        true,
 			concurrently: false,
 		})
