@@ -9,7 +9,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/kotakanbe/goval-dictionary/config"
 	"github.com/kotakanbe/goval-dictionary/models"
-	"golang.org/x/xerrors"
 )
 
 // RedHat is a struct for DBAccess
