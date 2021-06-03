@@ -8,84 +8,38 @@ from concurrent.futures import ThreadPoolExecutor
 import os
 
 
-def diff_cveid(args: Tuple[str, str]):
+def diff_cveid(args: Tuple[str, str, str]):
     # Endpoint
     # /cves/:family/:release/:id
-    release = []
-    if args[0] == "debian":
-        release = [7, 8, 9, 10]
-    elif args[0] == "redhat":
-        release = [5, 6, 7, 8]
-    elif args[0] == "ubuntu":
-        release = [14, 16, 18, 19, 20]
-    elif args[0] in ["alpine", "amazon", "suse", "oracle"]:
-        raise NotImplementedError
-    else:
-        logger.error(
-            f'Failed to diff_response..., err: This OS type({args[1]}) does not support test mode(cveid)')
-        raise NotImplementedError
-
-    for rel in release:
-        try:
-            response_old = requests.get(
-                f'http://127.0.0.1:1325/cves/{args[0]}/{rel}/{args[1]}', timeout=2).json()
-            response_new = requests.get(
-                f'http://127.0.0.1:1326/cves/{args[0]}/{rel}/{args[1]}', timeout=2).json()
-        except requests.ConnectionError as e:
-            logger.error(f'Failed to Connection..., err: {e}')
-            raise
-        except Exception as e:
-            logger.error(f'Failed to GET request..., err: {e}')
-            raise
+    try:
+        response_old = requests.get(
+            f'http://127.0.0.1:1325/cves/{args[0]}/{args[1]}/{args[2]}', timeout=2).json()
+        response_new = requests.get(
+            f'http://127.0.0.1:1326/cves/{args[0]}/{args[1]}/{args[2]}', timeout=2).json()
+    except requests.ConnectionError as e:
+        logger.error(f'Failed to Connection..., err: {e}')
+        raise
+    except Exception as e:
+        logger.error(f'Failed to GET request..., err: {e}')
+        raise
 
     diff = DeepDiff(response_old, response_new, ignore_order=True)
     if diff != {}:
         logger.warning(
-            f'There is a difference between old and new(or RDB and Redis):\n {pprint.pformat({args[1]: diff}, indent=2)}')
+            f'There is a difference between old and new(or RDB and Redis):\n {pprint.pformat({args[2]: diff}, indent=2)}')
 
 
-def diff_package(args: Tuple[str, str]):
+def diff_package(args: Tuple[str, str, str]):
     # Endpoint
     # /packs/:family/:release/:pack
+    raise NotImplementedError
 
-    # ([releases], ['unfixed-cves', 'fixed-cves'])
-    os_specific_urls: Tuple[list, list]
-    if args[0] == 'debian':
-        os_specific_urls = (['9', '10'], [
-                            'unfixed-cves', 'fixed-cves'])
-    elif args[0] == 'redhat':
-        os_specific_urls = (['3', '4', '5', '6', '7', '8'], ['unfixed-cves'])
-    else:
-        logger.error(
-            f'Failed to diff_response..., err: This OS type({args[1]}) does not support test mode(package)')
-        raise NotImplementedError
-
-    for rel in os_specific_urls[0]:
-        for fix_status in os_specific_urls[1]:
-            try:
-                response_old = requests.get(
-                    f'http://127.0.0.1:1325/{args[0]}/{rel}/pkgs/{args[1]}/{fix_status}', timeout=2).json()
-                response_new = requests.get(
-                    f'http://127.0.0.1:1326/{args[0]}/{rel}/pkgs/{args[1]}/{fix_status}', timeout=2).json()
-            except requests.ConnectionError as e:
-                logger.error(f'Failed to Connection..., err: {e}')
-                raise
-            except Exception as e:
-                logger.error(f'Failed to GET request..., err: {e}')
-                raise
-
-            diff = DeepDiff(response_old, response_new, ignore_order=True)
-            if diff != {}:
-                logger.warning(
-                    f'There is a difference between old and new(or RDB and Redis):\n {pprint.pformat({args[1]: diff}, indent=2)}')
-
-
-def diff_response(args: Tuple[str, str, str]):
+def diff_response(args: Tuple[str, str, str, str]):
     try:
         if args[0] == 'cveid':
-            diff_cveid((args[1], args[2]))
+            diff_cveid((args[1], args[2], args[3]))
         if args[0] == 'package':
-            diff_package((args[1], args[2]))
+            diff_package((args[1], args[2], args[3]))
     except Exception:
         exit(1)
 
@@ -95,8 +49,7 @@ parser.add_argument('mode', choices=['cveid', 'package'],
                     help='Specify the mode to test.')
 parser.add_argument('ostype', choices=['alpine', 'amazon','debian', 'oracle','redhat', 'suse', 'ubuntu'],
                     help='Specify the OS to be started in server mode when testing.')
-parser.add_argument('--list_path',
-                    help='A file path containing a line by line list of CVE-IDs or Packages to be diffed in server mode results')
+parser.add_argument('release', nargs='+', help='Specify the Release Version to be started in server mode when testing.')
 parser.add_argument(
     '--debug', action=argparse.BooleanOptionalAction, help='print debug message')
 args = parser.parse_args()
@@ -115,31 +68,43 @@ formatter = logging.Formatter('%(levelname)s[%(asctime)s] %(message)s', "%m-%d|%
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
 
-logger.info(f'start {args.ostype} server mode test(mode: {args.mode})')
+logger.info(f'start server mode test(mode: {args.mode}, os: {args.ostype}, release: {args.release})')
 
-list_path = None
-if args.list_path != None:
-    list_path = args.list_path
+if args.ostype == 'debian':
+    if len(list(set(args.release) - set(['7', '8', '9', '10']))) > 0:
+        logger.error(
+            f'Failed to diff_response..., err: This Release Version({args.release}) does not support test mode')
+        raise NotImplementedError
+elif args.ostype == 'ubuntu':
+    if len(list(set(args.release) - set(['14', '16', '18', '19', '20']))) > 0:
+        logger.error(
+            f'Failed to diff_response..., err: This Release Version({args.release}) does not support test mode')
+        raise NotImplementedError
+elif args.ostype == 'redhat':
+    if len(list(set(args.release) - set(['5', '6', '7', '8']))) > 0:
+        logger.error(
+            f'Failed to diff_response..., err: This Release Version({args.release}) does not support test mode')
+        raise NotImplementedError
+elif args.ostype in ["alpine", "amazon", "suse", "oracle"]:
+    raise NotImplementedError
 else:
-    if args.mode == 'cveid':
-        list_path = 'integration/cveid_' + args.ostype + '.txt'
-    if args.mode == 'package':
-        list_path = 'integration/package_' + args.ostype + '.txt'
-
-if list_path == None:
     logger.error(
-        f'Failed to set list path..., list_path: {list_path}, args.list_path: {args.list_path}')
-    exit(1)
+            f'Failed to diff_response..., err: This OS type({args[1]}) does not support test mode(cveid)')
+    raise NotImplementedError
 
-if not os.path.isfile(list_path):
-    logger.error(f'Failed to find list path..., list_path: {list_path}')
-    exit(1)
+for relVer in args.release:
+    list_path = None
+    if args.mode == 'cveid':
+        list_path = f"integration/cveid/{args.ostype}/{args.ostype}_{relVer}.txt"
+    if args.mode == 'package':
+        list_path = f"integration/package/{args.ostype}/{args.ostype}_{relVer}.txt"
 
-logger.debug(
-    f'Test Mode: {args.mode}, OStype: {args.ostype}, Use List Path: {list_path}')
+    if not os.path.isfile(list_path):
+        logger.error(f'Failed to find list path..., list_path: {list_path}')
+        exit(1)
 
-with open(list_path) as f:
-    list = [s.strip() for s in f.readlines()]
-    with ThreadPoolExecutor() as executor:
-        ins = ((args.mode, args.ostype, e) for e in list)
-        executor.map(diff_response, ins)
+    with open(list_path) as f:
+        list = [s.strip() for s in f.readlines()]
+        with ThreadPoolExecutor() as executor:
+            ins = ((args.mode, args.ostype, relVer, e) for e in list)
+            executor.map(diff_response, ins)
