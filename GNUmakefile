@@ -105,12 +105,14 @@ fetch-redis:
 	integration/goval-dictionary.new fetch-redhat --dbtype redis --dbpath "redis://127.0.0.1:6380/0"
 
 diff-cveid:
-	# @ python integration/diff_server_mode.py cveid debian
-	@ python integration/diff_server_mode.py cveid redhat
+	# @ python integration/diff_server_mode.py cveid debian 7 8 9 10
+	# @ python integration/diff_server_mode.py cveid ubuntu 14 16 18 19 20
+	@ python integration/diff_server_mode.py cveid redhat 5 6 7 8
 
 diff-package:
-	# @ python integration/diff_server_mode.py package debian
-	@ python integration/diff_server_mode.py package redhat
+	# @ python integration/diff_server_mode.py package debian 7 8 9 10
+	# @ python integration/diff_server_mode.py cveid ubuntu 14 16 18 19 20
+	@ python integration/diff_server_mode.py package redhat 5 6 7 8
 
 diff-server-rdb:
 	integration/goval-dictionary.old server --dbpath=$(PWD)/integration/oval.old.sqlite3 --port 1325 > /dev/null & 
