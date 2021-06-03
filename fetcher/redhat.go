@@ -13,7 +13,7 @@ func newRedHatFetchRequests(target []string) (reqs []fetchRequest) {
 		if v == "5" {
 			url = fmt.Sprintf(tV1, v)
 		} else {
-			url = fmt.Sprintf(tV2, v, v)
+			url = fmt.Sprintf(tV2, v[:1], v)
 		}
 
 		reqs = append(reqs, fetchRequest{

@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"flag"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +81,8 @@ func (p *FetchRedHatCmd) SetFlags(f *flag.FlagSet) {
 	)
 }
 
+var rhelOvalNamePattern = regexp.MustCompile(`([6-8])\.(\d+)-(eus|aus|tus|e4s)`)
+
 // Execute execute
 func (p *FetchRedHatCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	util.SetLogger(p.LogDir, c.Conf.Quiet, c.Conf.Debug, p.LogJSON)
@@ -106,10 +109,18 @@ func (p *FetchRedHatCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 	vers := []string{}
 	v := map[string]bool{}
 	for _, arg := range f.Args() {
-		ver, err := strconv.Atoi(arg)
-		if err != nil || ver < 5 {
-			log15.Error("Specify version to fetch (from 5 to latest RHEL version)", "arg", arg)
-			return subcommands.ExitUsageError
+		if strings.Contains(arg, "-") {
+			matches := rhelOvalNamePattern.FindStringSubmatch(arg)
+			if len(matches) != 4 {
+				log15.Error("Specify version to fetch (from 5 to latest RHEL version)", "arg", arg)
+				return subcommands.ExitUsageError
+			}
+		} else {
+			ver, err := strconv.Atoi(arg)
+			if err != nil || ver < 5 {
+				log15.Error("Specify version to fetch (from 5 to latest RHEL version)", "arg", arg)
+				return subcommands.ExitUsageError
+			}
 		}
 		v[arg] = true
 	}
