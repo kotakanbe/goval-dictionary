@@ -2,7 +2,6 @@ package rdb
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/inconshreveable/log15"
@@ -25,9 +24,6 @@ func NewRedHat() *RedHat {
 func (o *RedHat) Name() string {
 	return o.Family
 }
-
-// RedhatOvalNamePattern is a regular expression of OVAL Name in OVALv2 format
-var RedhatOvalNamePattern = regexp.MustCompile(`^([5-8])$|^([6-8])\.(\d+)(-eus|-aus|-tus|-e4s)?$`)
 
 // InsertOval inserts RedHat OVAL
 func (o *RedHat) InsertOval(root *models.Root, meta models.FetchMeta, driver *gorm.DB) error {
@@ -97,7 +93,6 @@ func (o *RedHat) InsertOval(root *models.Root, meta models.FetchMeta, driver *go
 
 // GetByPackName select definitions by packName
 func (o *RedHat) GetByPackName(driver *gorm.DB, osVer, packName, _ string) ([]models.Definition, error) {
-	osVer = major(osVer)
 	packs := []models.Package{}
 	err := driver.Where(&models.Package{Name: packName}).Find(&packs).Error
 	if err != nil && err != gorm.ErrRecordNotFound {

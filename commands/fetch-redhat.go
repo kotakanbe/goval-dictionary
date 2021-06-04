@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"flag"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -12,7 +13,6 @@ import (
 	"github.com/inconshreveable/log15"
 	c "github.com/kotakanbe/goval-dictionary/config"
 	"github.com/kotakanbe/goval-dictionary/db"
-	"github.com/kotakanbe/goval-dictionary/db/rdb"
 	"github.com/kotakanbe/goval-dictionary/fetcher"
 	"github.com/kotakanbe/goval-dictionary/models"
 	"github.com/kotakanbe/goval-dictionary/util"
@@ -80,6 +80,9 @@ func (p *FetchRedHatCmd) SetFlags(f *flag.FlagSet) {
 	)
 }
 
+// RedhatOvalNamePattern is a regular expression of OVAL Name in OVALv2 format
+var RedhatOvalNamePattern = regexp.MustCompile(`^([5-8])$|^([6-8])\.(\d+)-(eus|aus|tus|e4s)$`)
+
 // Execute execute
 func (p *FetchRedHatCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	util.SetLogger(p.LogDir, c.Conf.Quiet, c.Conf.Debug, p.LogJSON)
@@ -106,7 +109,7 @@ func (p *FetchRedHatCmd) Execute(_ context.Context, f *flag.FlagSet, _ ...interf
 	vers := []string{}
 	v := map[string]bool{}
 	for _, arg := range f.Args() {
-		if !rdb.RedhatOvalNamePattern.MatchString(arg) {
+		if !RedhatOvalNamePattern.MatchString(arg) {
 			log15.Error("Specify version to fetch (from 5 to latest RHEL version)", "arg", arg)
 			return subcommands.ExitUsageError
 		}
