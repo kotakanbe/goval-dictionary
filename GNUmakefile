@@ -9,6 +9,7 @@
 	fmtcheck \
 	pretest \
 	test \
+	integration \
 	cov \
 	clean
 
@@ -65,3 +66,73 @@ clean:
 	echo $(PKGS) | xargs go clean || exit;
 	echo $(PKGS) | xargs go clean || exit;
 
+PWD := $(shell pwd)
+BRANCH := $(shell git symbolic-ref --short HEAD)
+build-integration:
+	# @ git stash save
+	$(GO) build -ldflags "$(LDFLAGS)" -o integration/goval-dictionary.new
+	@ git stash save
+	git checkout $(shell git describe --tags --abbrev=0)
+	@git reset --hard
+	$(GO) build -ldflags "$(LDFLAGS)" -o integration/goval-dictionary.old
+	git checkout $(BRANCH)
+	@ git stash apply stash@{0} && git stash drop stash@{0}
+
+clean-integration:
+	-pkill goval-dictionary.old
+	-pkill goval-dictionary.new
+	-rm integration/goval-dictionary.old integration/goval-dictionary.new integration/oval.old.sqlite3 integration/oval.new.sqlite3
+	-docker kill redis-old redis-new
+	-docker rm redis-old redis-new
+
+fetch-rdb:
+	# integration/goval-dictionary.old fetch-debian --dbpath=$(PWD)/integration/oval.old.sqlite3 7 8 9 10
+	# integration/goval-dictionary.old fetch-ubuntu --dbpath=$(PWD)/integration/oval.old.sqlite3 14 16 18 19 20
+	integration/goval-dictionary.old fetch-redhat --dbpath=$(PWD)/integration/oval.old.sqlite3 5 6 7 8
+	
+	# integration/goval-dictionary.new fetch-debian --dbpath=$(PWD)/integration/oval.new.sqlite3 7 8 9 10
+	# integration/goval-dictionary.new fetch-ubuntu --dbpath=$(PWD)/integration/oval.new.sqlite3 14 16 18 19 20
+	integration/goval-dictionary.new fetch-redhat --dbpath=$(PWD)/integration/oval.new.sqlite3 5 6 7 8
+
+fetch-redis:
+	docker run --name redis-old -d -p 127.0.0.1:6379:6379 redis
+	docker run --name redis-new -d -p 127.0.0.1:6380:6379 redis
+
+	# integration/goval-dictionary.old fetch-debian --dbtype redis --dbpath "redis://127.0.0.1:6379/0"
+	integration/goval-dictionary.old fetch-redhat --dbtype redis --dbpath "redis://127.0.0.1:6379/0"
+
+	# integration/goval-dictionary.new fetch-debian --dbtype redis --dbpath "redis://127.0.0.1:6380/0"
+	integration/goval-dictionary.new fetch-redhat --dbtype redis --dbpath "redis://127.0.0.1:6380/0"
+
+diff-cveid:
+	# @ python integration/diff_server_mode.py cveid debian 7 8 9 10
+	# @ python integration/diff_server_mode.py cveid ubuntu 14 16 18 19 20
+	@ python integration/diff_server_mode.py cveid redhat 5 6 7 8
+
+diff-package:
+	# @ python integration/diff_server_mode.py package debian 7 8 9 10
+	# @ python integration/diff_server_mode.py cveid ubuntu 14 16 18 19 20
+	@ python integration/diff_server_mode.py package redhat 5 6 7 8
+
+diff-server-rdb:
+	integration/goval-dictionary.old server --dbpath=$(PWD)/integration/oval.old.sqlite3 --port 1325 > /dev/null & 
+	integration/goval-dictionary.new server --dbpath=$(PWD)/integration/oval.new.sqlite3 --port 1326 > /dev/null &
+	make diff-cveid
+	# make diff-package
+	pkill goval-dictionary.old 
+	pkill goval-dictionary.new
+
+diff-server-redis:
+	integration/goval-dictionary.old server --dbtype redis --dbpath "redis://127.0.0.1:6379/0" --port 1325 > /dev/null & 
+	integration/goval-dictionary.new server --dbtype redis --dbpath "redis://127.0.0.1:6380/0" --port 1326 > /dev/null &
+	make diff-cveid
+	# make diff-package
+	pkill goval-dictionary.old 
+	pkill goval-dictionary.new
+
+diff-server-rdb-redis:
+	integration/goval-dictionary.new server --dbpath=$(PWD)/integration/oval.new.sqlite3 --port 1325 > /dev/null &
+	integration/goval-dictionary.new server --dbtype redis --dbpath "redis://127.0.0.1:6380/0" --port 1326 > /dev/null &
+	make diff-cveid
+	# make diff-package
+	pkill goval-dictionary.new
