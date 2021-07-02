@@ -8,7 +8,7 @@ import (
 )
 
 // ConvertSUSEToModel Convert OVAL to models
-func ConvertSUSEToModel(root *oval.Root, suseType string) (roots []Root) {
+func ConvertSUSEToModel(root *oval.Root, suseType, ver string) (roots []Root) {
 	m := map[string]Root{}
 	for _, ovaldef := range root.Definitions.Definitions {
 		if strings.Contains(ovaldef.Description, "** REJECT **") {
@@ -32,14 +32,14 @@ func ConvertSUSEToModel(root *oval.Root, suseType string) (roots []Root) {
 				References:    rs,
 			}
 
-			root, ok := m[distPack.osVer]
+			root, ok := m[ver]
 			if ok {
 				root.Definitions = append(root.Definitions, def)
-				m[distPack.osVer] = root
+				m[ver] = root
 			} else {
-				m[distPack.osVer] = Root{
+				m[ver] = Root{
 					Family:      suseType,
-					OSVersion:   distPack.osVer,
+					OSVersion:   ver,
 					Definitions: []Definition{def},
 				}
 			}
@@ -60,9 +60,7 @@ func walkSUSE(cri oval.Criteria, osVer string, acc []distroPackage) []distroPack
 		if strings.HasPrefix(c.Comment, "openSUSE ") {
 			continue
 		}
-		if strings.HasPrefix(c.Comment, "SUSE Linux Enterprise Server ") {
-			osVer = strings.TrimPrefix(strings.TrimSuffix(c.Comment, " is installed"),
-				"SUSE Linux Enterprise Server ")
+		if strings.HasPrefix(c.Comment, "SUSE Linux Enterprise") {
 			continue
 		}
 
@@ -70,9 +68,6 @@ func walkSUSE(cri oval.Criteria, osVer string, acc []distroPackage) []distroPack
 		if strings.HasPrefix(c.Comment, "SUSE") {
 			return acc
 		}
-
-		osVer = strings.TrimSuffix(osVer, "-LTSS")
-		osVer = strings.Replace(osVer, " SP", ".", -1)
 
 		packVer := ""
 		if strings.HasSuffix(c.Comment, " is installed") {
